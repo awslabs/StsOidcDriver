@@ -92,26 +92,26 @@ While `--client_id` optional because this tool supports dynamic client registrat
 
 ```bash
 export OIDC_DISCOVERY_URL="https://auth.example.com/"
-export OIDC_CLIENT_ID="client123"
-export AWS_ROLE_ARN="arn:aws:iam::221346701426:role/oktapus"
+export OIDC_CLIENT_ID="your_client_id"
+export AWS_ROLE_ARN="arn:aws:iam::111122223333:role/youroidcrole"
 
-python3 stsoidcdriver.py
+stsoidcdriver
 ```
 
 ### Using authorization code flow, with input from parameters
 ```bash
-python3 stsoidcdriver.py --client_id client123 --openid_url "https://auth.example.com/" --role arn:aws:iam::221346701426:role/oktapus
+stsoidcdriver --client_id "your_client_id" --openid_url "https://auth.example.com/" --role "arn:aws:iam::111122223333:role/youroidcrole"
 ```
 
 ### Using Dynamic Client Registration with authorization code flow, with input from parameters
 ```bash
-python3 stsoidcdriver.py --role "arn:aws:iam::221346701426:role/oktapus" --openid_url "https://auth.example.com/"
+stsoidcdriver --role "arn:aws:iam::111122223333:role/youroidcrole" --openid_url "https://auth.example.com/"
 ```
 
 ### Using an implicit flow, with input from parameters
 ```bash
 # Set environment variables for dynamic registration
-python3 stsoidcdriver.py --implicit --openid_url "https://auth.example.com/" --role "arn:aws:iam::221346701426:role/oktapus" --client_id "client123"
+stsoidcdriver --implicit --openid_url "https://auth.example.com/" --role "arn:aws:iam::111122223333:role/youroidcrole" --client_id "your_client_id"
 ```
 
 ### Troubleshooting
