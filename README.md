@@ -157,8 +157,8 @@ This was tested with Entra, Okta, and Auth0 and in our testing there were no com
 
 #### I'm getting a failure from my OpenID Provider that doesn't redirect back to the OIDC driver
 
-If you're getting a failure from your OpenID Provider, such as an invalid redirect_uri, your IDP may not redirect your browser back to the tool to finish OAuth.
-The tool will remain listening, and if you're encountering errors from your you should terminate the tool (ctrl+c) and run it again after your OpenID Provider has been updated.
+If you're getting a failure from your OpenID Provider, such as an invalid redirect_uri, your OpenID provider may not redirect your browser back to the tool to finish the OIDC flow, or give you an error message from the tool. In such an event, your OpenID provider will usually give a meaningful error message that tells you what you have to do.
 
-As users may have to enter usernames, passwords, and MFA credentials we were hesitant to be prescriptive with a timeout for this tool.
+The tool will remain listening for up to two minutes, and if you're encountering errors from your you should terminate the tool (ctrl+c) and run it again after your OpenID rrovider has been updated and you're ready to try again.
+
 
