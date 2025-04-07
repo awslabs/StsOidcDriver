@@ -1,0 +1,6 @@
+venv
+scratch.md
+settings.json
+.vscode
+*.egg-info
+build

@@ -1,0 +1,4 @@
+pyjwt~=2.10.1
+boto3~=1.37.2
+requests~=2.32.3
+bottle~=0.13.2
