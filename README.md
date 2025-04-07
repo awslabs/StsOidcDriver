@@ -40,7 +40,7 @@ You can clone directly from this repo and install using pip:
 ```bash
 # Clone the repository
 git clone https://github.com/awslabs/StsOidcDriver.git
-cd stsoidcdriver
+cd StsOidcDriver
 pip3 install .
 ```
 
