@@ -47,7 +47,7 @@ pip3 install .
 Or you can install directly from pypi
 ```bash
 # Clone the repository
-pip3 install stsoidcdriver
+pipx install sts-oidc-driver
 ```
 
 ## Usage
