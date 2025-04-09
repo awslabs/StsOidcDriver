@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="sts_oidc_driver", 
-    version="1.0.0",
+    version="1.0.1",
     py_modules=["stsoidcdriver"],
     install_requires=[
         "requests~=2.32.3",

@@ -21,7 +21,7 @@ app = Bottle()
 
 # Configuration. Globals here are constants through the lifecycle of an execution.
 PORT = 6432 #6432 is "OIDC" with the standard touch pad letter/number mapping.
-REDIRECT_URI = f'http://localhost:{PORT}/callback' #You could change this, but in almost all cases you would want this to be only on localhost and not exposed over a network or on a remote server.
+REDIRECT_URI = f'http://127.0.0.1:{PORT}/callback' #You could change this, but in almost all cases you would want this to be only on localhost and not exposed over a network or on a remote server.
 STATE = secrets.token_urlsafe(32)
 NONCE = secrets.token_urlsafe(16)
 CODE_VERIFIER = secrets.token_urlsafe(32)
