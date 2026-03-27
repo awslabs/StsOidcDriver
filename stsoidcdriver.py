@@ -515,41 +515,66 @@ def open_browser():
     webbrowser.open(f'http://localhost:{PORT}',new=1)
 
 def handle_client_credentials_flow():
-    """Handle OAuth client credentials grant. No browser interaction needed."""
+    """Handle OAuth client credentials grant. No browser interaction needed.
+    Tries client_secret_basic (HTTP Basic Auth) first, falls back to client_secret_post."""
     logger.debug("Starting client credentials flow")
+    token_endpoint = OIDC_CONFIG['token_endpoint']
+    post_data = {
+        'grant_type': 'client_credentials',
+        'scope': SCOPES
+    }
+
+    # Try client_secret_basic first (credentials in Authorization header)
     try:
+        logger.debug("Attempting client_secret_basic authentication")
         token_response = requests.post(
-            OIDC_CONFIG['token_endpoint'],
-            data={
-                'grant_type': 'client_credentials',
-                'client_id': OIDC_CLIENT_ID,
-                'client_secret': OIDC_CLIENT_SECRET,
-                'scope': SCOPES
-            },
-            headers={
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': USER_AGENT
-            },
+            token_endpoint,
+            data=post_data,
+            auth=(OIDC_CLIENT_ID, OIDC_CLIENT_SECRET),
+            headers={'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT},
+            timeout=10
+        )
+        if token_response.status_code == 200:
+            logger.debug("client_secret_basic succeeded")
+            return _process_client_credentials_response(token_response)
+
+        logger.debug(f"client_secret_basic failed ({token_response.status_code}), falling back to client_secret_post")
+    except requests.exceptions.RequestException as e:
+        logger.debug(f"client_secret_basic request failed: {e}, falling back to client_secret_post")
+
+    # Fall back to client_secret_post (credentials in POST body)
+    try:
+        logger.debug("Attempting client_secret_post authentication")
+        post_data['client_id'] = OIDC_CLIENT_ID
+        post_data['client_secret'] = OIDC_CLIENT_SECRET
+        token_response = requests.post(
+            token_endpoint,
+            data=post_data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT},
             timeout=10
         )
         if token_response.status_code != 200:
-            sys.exit(f"Token request failed: {token_response.text}")
+            sys.exit(f"Token request failed with both client_secret_basic and client_secret_post: {token_response.text}")
 
-        tokens = token_response.json()
-        # Client credentials grant typically returns an access_token (JWT).
-        # Some providers may also return an id_token.
-        token = tokens.get('id_token') or tokens.get('access_token')
-        if not token:
-            sys.exit("No id_token or access_token in token response")
-
-        logger.debug("Token received from client credentials grant")
-        assume_result = assume_role_with_token(token)
-        if assume_result['status'] != 'success':
-            sys.exit(f"Failed to assume role: {assume_result.get('message', 'unknown error')}")
-
-        write_credentials(assume_result['credentials'])
+        logger.debug("client_secret_post succeeded")
+        return _process_client_credentials_response(token_response)
     except requests.exceptions.RequestException as e:
         sys.exit(f"Failed to request token from provider: {e}")
+
+
+def _process_client_credentials_response(token_response):
+    """Process a successful client credentials token response."""
+    tokens = token_response.json()
+    token = tokens.get('id_token') or tokens.get('access_token')
+    if not token:
+        sys.exit("No id_token or access_token in token response")
+
+    logger.debug("Token received from client credentials grant")
+    assume_result = assume_role_with_token(token)
+    if assume_result['status'] != 'success':
+        sys.exit(f"Failed to assume role: {assume_result.get('message', 'unknown error')}")
+
+    write_credentials(assume_result['credentials'])
 
 
 def main():
