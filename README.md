@@ -114,6 +114,13 @@ stsoidcdriver --role "arn:aws:iam::111122223333:role/youroidcrole" --openid_url 
 stsoidcdriver --implicit --openid_url "https://auth.example.com/" --role "arn:aws:iam::111122223333:role/youroidcrole" --client_id "your_client_id"
 ```
 
+### Using client credentials grant (machine-to-machine)
+```bash
+stsoidcdriver --client_credentials --client_id "your_client_id" --client_secret "your_client_secret" --openid_url "https://auth.example.com/" --role "arn:aws:iam::111122223333:role/youroidcrole"
+```
+
+The client credentials grant is a machine-to-machine flow that does not require browser interaction. It uses the client ID and client secret to obtain a JWT directly from the token endpoint, then calls STS AssumeRoleWithWebIdentity. The `--client_secret` can also be set via the `OIDC_CLIENT_SECRET` environment variable.
+
 ### Troubleshooting
 
 #### EnableDebug Mode

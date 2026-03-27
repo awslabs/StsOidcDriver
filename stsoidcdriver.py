@@ -514,6 +514,69 @@ def open_browser():
     # time.sleep(0.5)  # Wait for server to start
     webbrowser.open(f'http://localhost:{PORT}',new=1)
 
+def handle_client_credentials_flow():
+    """Handle OAuth client credentials grant. No browser interaction needed.
+    Tries client_secret_basic (HTTP Basic Auth) first, falls back to client_secret_post."""
+    logger.debug("Starting client credentials flow")
+    token_endpoint = OIDC_CONFIG['token_endpoint']
+    post_data = {
+        'grant_type': 'client_credentials',
+        'scope': SCOPES
+    }
+
+    # Try client_secret_basic first (credentials in Authorization header)
+    try:
+        logger.debug("Attempting client_secret_basic authentication")
+        token_response = requests.post(
+            token_endpoint,
+            data=post_data,
+            auth=(OIDC_CLIENT_ID, OIDC_CLIENT_SECRET),
+            headers={'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT},
+            timeout=10
+        )
+        if token_response.status_code == 200:
+            logger.debug("client_secret_basic succeeded")
+            return _process_client_credentials_response(token_response)
+
+        logger.debug(f"client_secret_basic failed ({token_response.status_code}), falling back to client_secret_post")
+    except requests.exceptions.RequestException as e:
+        logger.debug(f"client_secret_basic request failed: {e}, falling back to client_secret_post")
+
+    # Fall back to client_secret_post (credentials in POST body)
+    try:
+        logger.debug("Attempting client_secret_post authentication")
+        post_data['client_id'] = OIDC_CLIENT_ID
+        post_data['client_secret'] = OIDC_CLIENT_SECRET
+        token_response = requests.post(
+            token_endpoint,
+            data=post_data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT},
+            timeout=10
+        )
+        if token_response.status_code != 200:
+            sys.exit(f"Token request failed with both client_secret_basic and client_secret_post: {token_response.text}")
+
+        logger.debug("client_secret_post succeeded")
+        return _process_client_credentials_response(token_response)
+    except requests.exceptions.RequestException as e:
+        sys.exit(f"Failed to request token from provider: {e}")
+
+
+def _process_client_credentials_response(token_response):
+    """Process a successful client credentials token response."""
+    tokens = token_response.json()
+    token = tokens.get('id_token') or tokens.get('access_token')
+    if not token:
+        sys.exit("No id_token or access_token in token response")
+
+    logger.debug("Token received from client credentials grant")
+    assume_result = assume_role_with_token(token)
+    if assume_result['status'] != 'success':
+        sys.exit(f"Failed to assume role: {assume_result.get('message', 'unknown error')}")
+
+    write_credentials(assume_result['credentials'])
+
+
 def main():
     parser = argparse.ArgumentParser(description='STS OIDC driver. Gets credentials for AWS using OIDC.')
     parser.add_argument('--role', help='Role ARN to assume')
@@ -525,11 +588,14 @@ def main():
     parser.add_argument('--aws-config-file', type=str, help='path to aws config file you want updated. used with profile')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     parser.add_argument('--implicit', action='store_true', help='use implicit grant. Not recommended. Requires client_id')
+    parser.add_argument('--client_credentials', action='store_true', help='use OAuth client credentials grant. Requires --client_id and --client_secret. This is a machine-to-machine flow with no browser interaction.')
+    parser.add_argument('--client_secret', help='Client secret for client credentials grant')
+    parser.add_argument('--scopes', help='Custom scopes to request (e.g. "my-api/read my-api/write"). Required for client credentials grant with providers like Cognito that need custom resource server scopes.')
     
     args = parser.parse_args()
 
     # These globals are set based on input from the user.
-    global AWS_ROLE_ARN, OIDC_DISCOVERY_URL, OIDC_CLIENT_ID, PROFILE_TO_UPDATE, AWS_CONFIG_FILE, AWS_REGION, IMPLICIT, OIDC_CONFIG, DYNAMIC_CLIENT, DURATION_SECONDS
+    global AWS_ROLE_ARN, OIDC_DISCOVERY_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, PROFILE_TO_UPDATE, AWS_CONFIG_FILE, AWS_REGION, IMPLICIT, CLIENT_CREDENTIALS, OIDC_CONFIG, DYNAMIC_CLIENT, DURATION_SECONDS, IS_DYNAMIC_CLIENT, SCOPES
 
     if args.role:
         AWS_ROLE_ARN = args.role
@@ -542,6 +608,24 @@ def main():
         IMPLICIT = args.implicit
     else:
         IMPLICIT = False
+
+    CLIENT_CREDENTIALS = args.client_credentials if args.client_credentials else False
+
+    if CLIENT_CREDENTIALS and IMPLICIT:
+        sys.exit("Cannot use both --implicit and --client_credentials at the same time")
+
+    if args.client_secret:
+        OIDC_CLIENT_SECRET = args.client_secret
+    elif os.environ.get('OIDC_CLIENT_SECRET'):
+        OIDC_CLIENT_SECRET = os.environ.get('OIDC_CLIENT_SECRET')
+    else:
+        OIDC_CLIENT_SECRET = None
+
+    if CLIENT_CREDENTIALS and not OIDC_CLIENT_SECRET:
+        sys.exit("Client credentials grant requires --client_secret or OIDC_CLIENT_SECRET environment variable")
+
+    if args.scopes:
+        SCOPES = args.scopes
 
     if args.openid_url:
         OIDC_DISCOVERY_URL = args.openid_url
@@ -563,6 +647,9 @@ def main():
         IS_DYNAMIC_CLIENT = True
         OIDC_CLIENT_ID="dynamic" #doesn't actually get used
         DYNAMIC_CLIENT = DynamicClient()
+
+    if CLIENT_CREDENTIALS and IS_DYNAMIC_CLIENT:
+        sys.exit("Client credentials grant requires --client_id or OIDC_CLIENT_ID environment variable")
 
 
     if args.aws_config_file:
@@ -608,6 +695,10 @@ def main():
     logger.debug(f"Using AWS region: {AWS_REGION}")
     logger.debug(f"Using DURATION_SECONDS: {DURATION_SECONDS}")
 
+    if CLIENT_CREDENTIALS:
+        # Client credentials is a direct machine-to-machine flow, no browser needed
+        handle_client_credentials_flow()
+        return
 
     # Start the server in a separate thread
     server_thread = threading.Thread(
